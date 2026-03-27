@@ -1,0 +1,9 @@
+FROM python:3.13-slim-bookworm
+
+WORKDIR /app
+
+RUN pip install "dapr-ext-drasi-dev==1.17.0.dev40"
+
+COPY quickstarts/12_orchestrator_pubsub.py 12_orchestrator_pubsub.py
+
+CMD ["sh", "-c", "ls -l && python 12_orchestrator_pubsub.py"]

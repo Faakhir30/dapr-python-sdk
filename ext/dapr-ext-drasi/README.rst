@@ -73,6 +73,7 @@ Example
 See:
 
 - ``examples/01_drasi_trigger_workflow.py``
+- ``examples/02_durable_agent_smart_router.py``
 
 Run:
 
@@ -106,4 +107,43 @@ Notes
 
 - Set ``provision_reaction=False`` in ``@drasi_trigger`` if you want to disable automatic Drasi API calls in local tests.
 - Set ``fail_on_provision_error=True`` if provisioning failures should fail fast instead of logging a warning.
+
+
+SmartRouter ToolSet (dynamic subscriptions)
+-------------------------------------------
+
+This extension also includes ``DrasiSmartRouterToolSet`` for dynamic, per-instance subscriptions.
+
+Use case:
+
+- ``@drasi_trigger`` handles static trigger subscriptions known at development time.
+- ``DrasiSmartRouterToolSet`` handles runtime query discovery and subscribe/unsubscribe for a specific agent run (for example by using ``ctx.instance_id`` as topic).
+
+Example:
+
+::
+
+    from dapr.ext.drasi import DrasiSmartRouterToolSet
+
+    toolset = DrasiSmartRouterToolSet(
+        smart_router_url="http://smart-router.drasi-system.svc.cluster.local",
+        instance_id=ctx.instance_id,
+    )
+    tools = toolset.get_tools()
+
+Provided tools:
+
+- ``drasi_list_queries``
+- ``drasi_subscribe_query``
+- ``drasi_unsubscribe_query``
+- ``drasi_list_subscriptions``
+
+Try SmartRouter end-to-end:
+
+::
+
+    export SMART_ROUTER_URL="http://smart-router.drasi-system.svc.cluster.local"
+    export INSTANCE_ID="demo-instance-1"
+    export QUERY_ID="low-stock-event-query"
+    python examples/02_durable_agent_smart_router.py
 
