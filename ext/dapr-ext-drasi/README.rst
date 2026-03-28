@@ -138,6 +138,8 @@ Provided tools:
 - ``drasi_unsubscribe_query``
 - ``drasi_list_subscriptions``
 
+``drasi_subscribe_query`` also accepts optional ``pubsub_name``, ``output_format`` (``Unpacked`` / ``Packed``), and ``skip_control_signals`` (True, False), matching SmartRouter ``POST /subscriptions``.
+
 Try SmartRouter end-to-end:
 
 ::

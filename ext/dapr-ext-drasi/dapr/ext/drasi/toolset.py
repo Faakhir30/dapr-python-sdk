@@ -54,13 +54,27 @@ class DrasiSmartRouterToolSet:
             )
 
         @tool
-        async def drasi_subscribe_query(query_id: str, topic: Optional[str] = None) -> Dict[str, Any]:
-            """Subscribe instance topic (or explicit topic) to a Drasi query."""
+        async def drasi_subscribe_query(
+            query_id: str,
+            topic: Optional[str] = None,
+            output_format: Optional[str] = None,
+            skip_control_signals: Optional[bool] = None,
+        ) -> Dict[str, Any]:
+            """Subscribe instance topic (or explicit topic) to a Drasi query.
+
+            Optional per-route options (PostDaprPubSub-aligned): pubsub_name, output_format
+            (Unpacked or Packed), skip_control_signals (default True on the server).
+            """
             target_topic = topic or instance_id
+            body: Dict[str, Any] = {"queryId": query_id, "topic": target_topic}
+            if output_format:
+                body["format"] = output_format
+            if skip_control_signals is not None:
+                body["skipControlSignals"] = skip_control_signals
             return _http_json(
                 method="POST",
                 url=f"{base_url}/subscriptions",
-                body={"queryId": query_id, "topic": target_topic},
+                body=body,
                 timeout=timeout,
             )
 
