@@ -5,5 +5,5 @@ common:
 apps:
   - appID: durable-agent-subscriber
     appDirPath: .
-    containerImage: drasi-agents:latest
+    containerImage: drasi-dapr-agents:latest
     containerImagePullPolicy: IfNotPresent
