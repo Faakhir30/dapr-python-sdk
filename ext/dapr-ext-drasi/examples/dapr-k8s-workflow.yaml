@@ -1,0 +1,9 @@
+version: 1
+name: durable-agent-k8s
+common:
+  resourcesPath: ./resources
+apps:
+  - appID: durable-agent-subscriber
+    appDirPath: .
+    containerImage: drasi-dapr-agents:latest
+    containerImagePullPolicy: IfNotPresent
