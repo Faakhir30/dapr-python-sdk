@@ -5,7 +5,11 @@ import asyncio
 import dapr.ext.workflow as wf
 from dapr_agents.workflow.runners.agent import AgentRunner
 
-from dapr.ext.drasi import DrasiChangeEvent, DrasiSmartRouterToolSet, drasi_trigger
+from dapr.ext.drasi import (
+    DrasiChangeEvent,
+    DrasiSmartRouterToolSet,
+    drasi_trigger,
+)
 from dapr.clients import DaprClient
 
 from dapr_agents.llm import DaprChatClient
@@ -28,6 +32,8 @@ from dapr_agents import call_agent
 async def on_change(ctx: wf.DaprWorkflowContext, event: DrasiChangeEvent):
     print(f"Recieved event", event, flush=True)
     print(f"Processing ticket: {event.after} from {event.source}", flush=True)
+    # TODO: "smart_router_url" is auto-overriden at at runtime by decorator 
+    # (hacky way of passing router_url inside on_change, will add a proper utill in extension)
     toolset = DrasiSmartRouterToolSet(
         smart_router_url="http://smart-router.drasi-system.svc.cluster.local",
         instance_id=ctx.instance_id,

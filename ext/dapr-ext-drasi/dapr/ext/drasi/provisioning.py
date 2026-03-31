@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -10,11 +11,12 @@ DEFAULT_DRASI_API_URL = "http://drasi-api.drasi-system.svc.cluster.local:8080"
 
 
 @dataclass(frozen=True)
-class DrasiReactionPlan:
-    query_id: str
-    pubsub_name: str
-    topic_name: str
+class DrasiSmartRouterPlan:
+    """Provision or merge a query into a SmartRouter reaction via Drasi management API."""
     reaction_name: str
+    pubsub_name: str
+    query_id: str
+    query_description: Optional[str] = None
 
 
 class DrasiProvisioner:
@@ -24,29 +26,64 @@ class DrasiProvisioner:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
 
-    def ensure_post_dapr_pubsub_reaction(self, plan: DrasiReactionPlan) -> bool:
-        if self.reaction_exists(plan.reaction_name):
-            return False
+    def ensure_smart_router_reaction(self, plan: DrasiSmartRouterPlan) -> bool:
+        """
+        Create or update a SmartRouter reaction so ``plan.query_id`` is registered.
+
+        Merges into existing ``queries`` when the reaction already exists (same
+        ``reaction_name``, multiple ``@drasi_trigger`` handlers / query IDs).
+        """
+        query_blob = self._smart_router_query_blob(plan)
+        path = f"/v1/reactions/{plan.reaction_name}"
+
+        existing_spec: Optional[Dict[str, Any]] = None
+        try:
+            dto = self._request(method="GET", path=path)
+            existing_spec = dto.get("spec") if isinstance(dto, dict) else None
+        except error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+
+        queries: Dict[str, str] = {}
+        if existing_spec and isinstance(existing_spec.get("queries"), dict):
+            queries = {
+                str(k): str(v) if v is not None else ""
+                for k, v in existing_spec["queries"].items()
+            }
+
+        kind = (existing_spec or {}).get("kind") or "SmartRouter"
+        if existing_spec and kind != "SmartRouter":
+            raise ValueError(
+                f"Reaction '{plan.reaction_name}' exists with kind {kind!r}; "
+                "expected SmartRouter for drasi_trigger provisioning."
+            )
+
+        queries[plan.query_id] = query_blob
+
+        properties: Dict[str, Any] = {}
+        if existing_spec and isinstance(existing_spec.get("properties"), dict):
+            properties = dict(existing_spec["properties"])
+        if "pubsubName" not in properties:
+            properties["pubsubName"] = plan.pubsub_name
 
         spec = {
-            "kind": "PostDaprPubSub",
-            "queries": {
-                plan.query_id: json.dumps(
-                    {
-                        "pubsubName": plan.pubsub_name,
-                        "topicName": plan.topic_name,
-                        "format": "Unpacked",
-                        "skipControlSignals": True,
-                    }
-                )
-            },
+            "kind": "SmartRouter",
+            "properties": properties,
+            "queries": queries,
         }
-        self._request(
-            method="PUT",
-            path=f"/v1/reactions/{plan.reaction_name}",
-            body=spec,
-        )
+        self._request(method="PUT", path=path, body=spec)
         return True
+
+    @staticmethod
+    def _smart_router_query_blob(plan: DrasiSmartRouterPlan) -> str:
+        desc = plan.query_description or f"Drasi query `{plan.query_id}` (dapr.ext.drasi)"
+        cfg = {
+            "description": desc,
+            "defaultFormat": "Unpacked",
+            "defaultSkipControlSignals": True,
+            "defaultPubsubName": plan.pubsub_name,
+        }
+        return json.dumps(cfg)
 
     def reaction_exists(self, reaction_name: str) -> bool:
         try:
@@ -87,8 +124,9 @@ def normalize_name(value: str) -> str:
 
 
 def topic_name_for_query(query_id: str) -> str:
-    return f"{normalize_name(query_id)}-topic"
+    """Dapr pub/sub topic for this workflow handler (agent instance / convention)."""
+    return f"{normalize_name(query_id)}_reaction_agents"
 
 
 def reaction_name_for_query(query_id: str) -> str:
-    return f"{normalize_name(query_id)}-agents"
+    return f"{normalize_name(query_id)}-smart-router"

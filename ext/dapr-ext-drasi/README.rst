@@ -7,7 +7,7 @@ Current milestone scope
 -----------------------
 
 - In-cluster provisioning only.
-- Automatically creates a Drasi PostDaprPubSub reaction when ``@drasi_trigger`` is applied.
+- Optionally creates or updates a **SmartRouter** reaction when ``@drasi_trigger`` is applied (merges ``query_id`` into the same reaction id when multiple handlers share ``reaction_name``).
 - Delegates route metadata to ``dapr_agents.workflow.decorators.message_router``.
 - Subscription wiring is handled by ``AgentRunner.subscribe(...)`` / ``AgentRunner.serve(...)`` from ``dapr-agents``.
 - Uses the in-cluster Drasi API endpoint:
@@ -17,9 +17,8 @@ Current milestone scope
 - Idempotent creation by convention:
 
   - Topic: ``{query_id}_reaction_agents``
-  - Reaction: ``{query_id}-reaction-agents``
+  - SmartRouter reaction id: ``{query_id}-smart-router`` (override with ``reaction_name=``).
 
-  If a reaction with the convention name already exists, it is not recreated.
 
 
 Install in a venv
@@ -30,41 +29,8 @@ Install in a venv
     python -m venv .venv
     source .venv/bin/activate
     pip install -U pip
-    pip install dapr-ext-workflow dapr dapr-agents
     pip install dapr-ext-drasi
 
-
-Developer release to PyPI (manual CLI)
----------------------------------------
-
-From this folder:
-
-::
-
-    cd python-sdk/ext/dapr-ext-drasi
-
-1) Bump version in ``dapr/ext/drasi/version.py`` (keep ``.dev`` for dev streams).
-
-2) Build distributions:
-
-::
-
-    python -m pip install -U build twine
-    python -m build
-
-3) Upload (token auth):
-
-::
-
-    export TWINE_USERNAME=__token__
-    export TWINE_PASSWORD=<your-pypi-token>
-    python -m twine upload dist/*
-
-4) Validate install from your account release:
-
-::
-
-    pip install -U dapr-ext-drasi==<your-dev-version>
 
 
 Example
@@ -77,9 +43,26 @@ See:
 
 Run:
 
+Prerequisites:
+
+- K8s cluster running (e.g., k3d cluster)
+- Drasi platform installed (including Dapr)
+- https://github.com/drasi-project/learning project running
+
+project should be running at http://localhost:8123 already.
+
 ::
 
-    python examples/01_drasi_trigger_workflow.py
+    cd examples
+    docker build -t drasi-dapr-agents .
+    dapr run -k -f dapr-k8s-workflow.yaml
+
+Open a new terminal and run:
+
+::
+
+    cd learning/tutorial/dapr/demo
+    ./demo-notifications-service.sh
 
 Expected behavior:
 
@@ -139,13 +122,4 @@ Provided tools:
 - ``drasi_list_subscriptions``
 
 ``drasi_subscribe_query`` also accepts optional ``pubsub_name``, ``output_format`` (``Unpacked`` / ``Packed``), and ``skip_control_signals`` (True, False), matching SmartRouter ``POST /subscriptions``.
-
-Try SmartRouter end-to-end:
-
-::
-
-    export SMART_ROUTER_URL="http://smart-router.drasi-system.svc.cluster.local"
-    export INSTANCE_ID="demo-instance-1"
-    export QUERY_ID="low-stock-event-query"
-    python examples/02_durable_agent_smart_router.py
 

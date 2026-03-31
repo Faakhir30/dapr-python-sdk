@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-from urllib import request
+from urllib import parse, request
 
 from dapr_agents.tool import AgentTool, tool
 
@@ -57,6 +57,7 @@ class DrasiSmartRouterToolSet:
         async def drasi_subscribe_query(
             query_id: str,
             topic: Optional[str] = None,
+            pubsub_name: Optional[str] = None,
             output_format: Optional[str] = None,
             skip_control_signals: Optional[bool] = None,
         ) -> Dict[str, Any]:
@@ -67,6 +68,8 @@ class DrasiSmartRouterToolSet:
             """
             target_topic = topic or instance_id
             body: Dict[str, Any] = {"queryId": query_id, "topic": target_topic}
+            if pubsub_name:
+                body["pubsubName"] = pubsub_name
             if output_format:
                 body["format"] = output_format
             if skip_control_signals is not None:
@@ -99,9 +102,34 @@ class DrasiSmartRouterToolSet:
                 url = f"{url}?queryId={query_id}"
             return _http_json(method="GET", url=url, timeout=timeout)
 
+        @tool
+        async def drasi_get_results(
+            query_id: str,
+            limit: int = 50,
+            include_control: bool = False,
+        ) -> Dict[str, Any]:
+            """Get recent observed results for a query from SmartRouter.
+
+            Note: this returns SmartRouter's in-memory recent buffer, not a persisted history.
+            """
+            safe_limit = max(1, min(int(limit), 500))
+            qs = parse.urlencode(
+                {
+                    "queryId": query_id,
+                    "limit": safe_limit,
+                    "includeControl": str(bool(include_control)).lower(),
+                }
+            )
+            return _http_json(
+                method="GET",
+                url=f"{base_url}/results?{qs}",
+                timeout=timeout,
+            )
+
         return [
             drasi_list_queries,
             drasi_subscribe_query,
             drasi_unsubscribe_query,
             drasi_list_subscriptions,
+            drasi_get_results,
         ]
